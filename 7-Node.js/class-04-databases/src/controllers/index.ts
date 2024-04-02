@@ -1,21 +1,24 @@
+import { userRepository } from "../repositories/userRepository";
 import { Request, Response, NextFunction } from "express";
 import { sqliteConnection } from "../databases/sqlite3";
-import { randomUUID } from "node:crypto";
-import { hash, compare } from "bcrypt";
+import { compare } from "bcrypt";
 
 export const userControllers = {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const { name, email, password } = req.body;
-      const uuid = randomUUID();
-      const db = await sqliteConnection();
-      const passwordHash = await hash(password, 10);
-      await db.run(
-        "INSERT INTO users (Id, name, email, password) VALUES (?,?,?,?);",
-        [uuid, name, email, passwordHash]
-      );
 
-      return res.status(201).json({ message: "created!", id: uuid });
+      const userEmail = await userRepository.getByEmail(email);
+      if (userEmail) {
+        throw res.status(404).json({ message: "Email already exist!" });
+      }
+
+      const userCreated = await userRepository.create({
+        name,
+        email,
+        password,
+      });
+      return res.status(201).json({ message: "created!", ...userCreated });
     } catch (error) {
       next(error);
     }
@@ -32,9 +35,7 @@ export const userControllers = {
           .json({ message: "Please, confirm your password!" });
       }
 
-      const db = await sqliteConnection();
-      const user = await db.get("SELECT * FROM users WHERE id = ?;", [id]);
-
+      const user = await userRepository.getByID(id);
       if (!user) throw res.status(404).json({ message: "User not found!" });
 
       const passwordCheck = await compare(password, user.password);
@@ -54,9 +55,8 @@ export const userControllers = {
     try {
       const { id } = req.params;
       const { name, email, password, newPassword } = req.body;
-      const db = await sqliteConnection();
 
-      const user = await db.get("SELECT * FROM users WHERE id = ?;", [id]);
+      const user = await userRepository.getByID(id);
       if (!user) throw res.status(404).json({ message: "User not found!" });
 
       const passwordCheck = await compare(password, user.password);
@@ -64,28 +64,40 @@ export const userControllers = {
         throw res.status(401).json({ message: "Invalid password!" });
       }
 
-      const userEmail = await db.get("SELECT * FROM users WHERE email= ?;", [
-        email,
-      ]);
+      const userEmail = await userRepository.getByEmail(email);
       if (userEmail && userEmail.id != id) {
         throw res.status(404).json({ message: "Email already exist!" });
       }
 
-      const updateQuery = `
-      UPDATE users 
-      SET name = ?, email = ?, password = ?, updated_at = DATETIME('now')
-      WHERE id = ?;
-      `;
-
-      const passwordHash = await hash(newPassword, 10);
-      await db.run(updateQuery, [name, email, passwordHash, id]);
-      return res.status(200).json({ message: "User updated!" });
+      const userUpdated = await userRepository.update({
+        id,
+        name,
+        email,
+        newPassword,
+      });
+      return res.status(200).json({ userUpdated });
     } catch (error) {
       return next(error);
     }
   },
 
-  async delete(req: Request, res: Response) {
-    res.send({ message: "deleted!" });
+  async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const { password } = req.body;
+
+      const user = await userRepository.getByID(id);
+      if (!user) throw res.status(404).json({ message: "User not found!" });
+
+      const passwordCheck = await compare(password, user.password);
+      if (!passwordCheck) {
+        throw res.status(401).json({ message: "Invalid password!" });
+      }
+
+      const userDeleted = await userRepository.delete(id);
+      return res.status(200).json(userDeleted);
+    } catch (error) {
+      next();
+    }
   },
 };
