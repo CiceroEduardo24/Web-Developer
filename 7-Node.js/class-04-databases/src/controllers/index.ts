@@ -1,12 +1,42 @@
 import { userRepository } from "../repositories/userRepository";
 import { Request, Response, NextFunction } from "express";
-import { sqliteConnection } from "../databases/sqlite3";
 import { compare } from "bcrypt";
+import { z } from "zod";
 
 export const userControllers = {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const { name, email, password } = req.body;
+      const userSchema = z
+        .object({
+          name: z
+            .string({
+              required_error: "Nome obrigatório!",
+              invalid_type_error: "Para o nome digite somente texto!",
+            })
+            .min(3, { message: "Mínimo de 3 caracteres!" }),
+
+          email: z
+            .string({
+              required_error: "Email obrigatório!",
+              invalid_type_error: "Para o email use somente texto!",
+            })
+            .email({ message: "Email inválido!" }),
+          password: z
+            .string({
+              required_error: "Senha obrigatória!",
+              invalid_type_error: "Para a senha use o tipo string!",
+            })
+            .min(7, { message: "Senha com mínimo de 7 caracteres!" })
+            .regex(
+              /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()-+])[A-Za-z\d!@#$%^&*()-+]{7,}$/,
+              {
+                message:
+                  "A senha deve conter pelo menos uma letra maiúscula, um numerico e caractere especial!",
+              }
+            ),
+        })
+        .strict();
+      const { name, email, password } = userSchema.parse(req.body);
 
       const userEmail = await userRepository.getByEmail(email);
       if (userEmail) {
