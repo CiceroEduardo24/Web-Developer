@@ -11,9 +11,9 @@ export const authControllers = {
         .object({
           email: z
             .string({
-              invalid_type_error: "Somente texto!",
+              invalid_type_error: "only text!",
             })
-            .email({ message: "Email com formato inválido!" })
+            .email({ message: "Badly email format!" })
             .max(255, "Tamanho máximo atingido por email!"),
 
           password: z
@@ -26,11 +26,11 @@ export const authControllers = {
       const { email, password } = userSchema.parse(req.body);
 
       const user = await userRepository.getbyEmail(email);
-      if (!user) throw res.status(401).json({ message: "Email invalid!" });
+      if (!user) throw res.status(401).json({ message: "Email or password invalid!" });
 
       const passwordCheck = await compare(password, user.password);
       if (!passwordCheck) {
-        throw res.status(401).json({ message: "Password invalid!" });
+        throw res.status(401).json({ message: "Email or password invalid!" });
       }
 
       const token = sign({ id: user.id }, process.env.SECRET_TOKEN, {

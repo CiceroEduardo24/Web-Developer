@@ -5,11 +5,13 @@ import { appErrors } from "./errors/appErrors";
 import { pageNotFound } from "./errors/pageNotFound";
 import { sqliteConnection } from "./databases/sqlite3";
 import { runMigrations } from "./databases/sqlite3/migrations";
+import cookieParser from "cookie-parser";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(routers);
 
 app.use(pageNotFound);
