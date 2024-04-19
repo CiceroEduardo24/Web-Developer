@@ -9,7 +9,7 @@ const storage = multer.diskStorage({
   destination: UPLOADS_FOLDER,
   filename(_req, file, callback) {
     const hash = crypto.randomBytes(10).toString("hex");
-    const fileName = `${hash}_${file.originalname}`;
+    const fileName = `${hash}_${file.originalname.replaceAll(" ", "-")}`;
     return callback(null, fileName);
   },
 });
@@ -23,7 +23,9 @@ const fileFilter = (
 
   if (formatFiles.includes(file.mimetype)) return callback(null, true);
 
-  const error = new Error("Invalid image type!") as Error & { status: number };
+  const error = new Error("Tipo de imagem inválido!") as Error & {
+    status: number;
+  };
   error.status = 400;
 
   if (callback) {
